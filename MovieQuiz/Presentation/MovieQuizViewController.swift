@@ -57,14 +57,14 @@ final class MovieQuizViewController: UIViewController {
 
     private func configureLabels() {
         questionTitleLabel.text = "Вопрос:"
-        questionTitleLabel.font = .systemFont(ofSize: 20, weight: .regular)
+        questionTitleLabel.font = UIFont(name: "YSDisplay-Medium", size: 20) ?? .systemFont(ofSize: 20, weight: .regular)
         questionTitleLabel.textColor = .white
 
-        progressLabel.font = .systemFont(ofSize: 20, weight: .regular)
+        progressLabel.font = UIFont(name: "YSDisplay-Medium", size: 20) ?? .systemFont(ofSize: 20, weight: .regular)
         progressLabel.textColor = .white
         progressLabel.textAlignment = .right
 
-        questionLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        questionLabel.font = UIFont(name: "YSDisplay-Bold", size: 20) ?? .systemFont(ofSize: 20, weight: .bold)
         questionLabel.textColor = .white
         questionLabel.textAlignment = .center
         questionLabel.numberOfLines = 0
@@ -90,7 +90,7 @@ final class MovieQuizViewController: UIViewController {
     private func configureButton(_ button: UIButton, title: String) {
         button.setTitle(title, for: .normal)
         button.setTitleColor(UIColor(red: 0.102, green: 0.106, blue: 0.125, alpha: 1), for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 20, weight: .semibold)
+        button.titleLabel?.font = UIFont(name: "YSDisplay-Medium", size: 20) ?? .systemFont(ofSize: 20, weight: .semibold)
         button.backgroundColor = .white
         button.layer.cornerRadius = 14
         button.clipsToBounds = true
