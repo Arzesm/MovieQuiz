@@ -4,7 +4,7 @@ MovieQuiz - это приложение с квизами о фильмах из
 
 ## **Ссылки**
 
-[Макет Figma](https://www.figma.com/file/l0IMG3Eys35fUrbvArtwsR/YP-Quiz?node-id=34%3A243)
+[Макет Figma](https://www.figma.com/design/wjLUZUID3eizsbYd616EUD/YP-Quiz)
 
 [API IMDb](https://tv-api.com/api#Top250Movies-header)
 
