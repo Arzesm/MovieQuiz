@@ -20,6 +20,9 @@ final class MovieQuizViewController: UIViewController {
     ]
 
     private let ratingThreshold = 6.0
+    private let ypBlack = UIColor(red: 26.0 / 255.0, green: 27.0 / 255.0, blue: 34.0 / 255.0, alpha: 1)
+    private let ypGreen = UIColor(red: 96.0 / 255.0, green: 194.0 / 255.0, blue: 142.0 / 255.0, alpha: 1)
+    private let ypRed = UIColor(red: 245.0 / 255.0, green: 107.0 / 255.0, blue: 108.0 / 255.0, alpha: 1)
     private var currentMovieIndex = 0
     private var correctAnswerCount = 0
     private var isAnswering = false
@@ -34,7 +37,7 @@ final class MovieQuizViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = UIColor(red: 0.102, green: 0.106, blue: 0.125, alpha: 1)
+        view.backgroundColor = ypBlack
         configureLabels()
         configurePosterImageView()
         configureButtons()
@@ -64,17 +67,18 @@ final class MovieQuizViewController: UIViewController {
         progressLabel.textColor = .white
         progressLabel.textAlignment = .right
 
-        questionLabel.font = UIFont(name: "YSDisplay-Bold", size: 20) ?? .systemFont(ofSize: 20, weight: .bold)
+        questionLabel.font = UIFont(name: "YSDisplay-Bold", size: 23) ?? .systemFont(ofSize: 23, weight: .bold)
         questionLabel.textColor = .white
         questionLabel.textAlignment = .center
-        questionLabel.numberOfLines = 0
+        questionLabel.numberOfLines = 2
+        questionLabel.lineBreakMode = .byWordWrapping
     }
 
     private func configurePosterImageView() {
-        posterImageView.contentMode = .scaleAspectFill
+        posterImageView.contentMode = .scaleAspectFit
         posterImageView.clipsToBounds = true
-        posterImageView.layer.cornerRadius = 16
-        posterImageView.layer.borderWidth = 5
+        posterImageView.layer.cornerRadius = 20
+        posterImageView.layer.borderWidth = 8
         posterImageView.layer.borderColor = UIColor.clear.cgColor
         posterImageView.accessibilityIdentifier = "moviePoster"
     }
@@ -89,10 +93,10 @@ final class MovieQuizViewController: UIViewController {
 
     private func configureButton(_ button: UIButton, title: String) {
         button.setTitle(title, for: .normal)
-        button.setTitleColor(UIColor(red: 0.102, green: 0.106, blue: 0.125, alpha: 1), for: .normal)
+        button.setTitleColor(ypBlack, for: .normal)
         button.titleLabel?.font = UIFont(name: "YSDisplay-Medium", size: 20) ?? .systemFont(ofSize: 20, weight: .semibold)
         button.backgroundColor = .white
-        button.layer.cornerRadius = 14
+        button.layer.cornerRadius = 15
         button.clipsToBounds = true
         button.accessibilityIdentifier = title == "Да" ? "yesButton" : "noButton"
     }
@@ -110,7 +114,7 @@ final class MovieQuizViewController: UIViewController {
 
         NSLayoutConstraint.activate([
             questionTitleLabel.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 20),
-            questionTitleLabel.topAnchor.constraint(equalTo: safeArea.topAnchor, constant: 15),
+            questionTitleLabel.topAnchor.constraint(equalTo: safeArea.topAnchor, constant: 10),
             questionTitleLabel.heightAnchor.constraint(equalToConstant: 24),
 
             progressLabel.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -20),
@@ -126,7 +130,7 @@ final class MovieQuizViewController: UIViewController {
             questionLabel.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -20),
 
             noButton.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 20),
-            noButton.trailingAnchor.constraint(equalTo: yesButton.leadingAnchor, constant: -16),
+            noButton.trailingAnchor.constraint(equalTo: yesButton.leadingAnchor, constant: -20),
             yesButton.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -20),
             noButton.widthAnchor.constraint(equalTo: yesButton.widthAnchor),
             noButton.heightAnchor.constraint(equalToConstant: 60),
@@ -158,9 +162,9 @@ final class MovieQuizViewController: UIViewController {
 
         if isCorrect {
             correctAnswerCount += 1
-            posterImageView.layer.borderColor = UIColor(red: 0.36, green: 0.72, blue: 0.54, alpha: 1).cgColor
+            posterImageView.layer.borderColor = ypGreen.cgColor
         } else {
-            posterImageView.layer.borderColor = UIColor(red: 0.91, green: 0.35, blue: 0.39, alpha: 1).cgColor
+            posterImageView.layer.borderColor = ypRed.cgColor
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
