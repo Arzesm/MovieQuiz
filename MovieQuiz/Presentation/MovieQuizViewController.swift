@@ -1,29 +1,14 @@
 import UIKit
 
 final class MovieQuizViewController: UIViewController {
-    private struct Movie {
-        let title: String
-        let rating: Double
-    }
-
-    private let movies = [
-        Movie(title: "The Room", rating: 3.7),
-        Movie(title: "The Dark Knight", rating: 9.0),
-        Movie(title: "Kill Bill", rating: 8.1),
-        Movie(title: "The Avengers", rating: 8.0),
-        Movie(title: "Deadpool", rating: 8.0),
-        Movie(title: "The Green Knight", rating: 6.6),
-        Movie(title: "Old", rating: 5.8),
-        Movie(title: "The Ice Age Adventures of Buck Wild", rating: 4.3),
-        Movie(title: "Tesla", rating: 5.1),
-        Movie(title: "Vivarium", rating: 5.8)
-    ]
-
-    private let ratingThreshold = 6.0
+    private let questionFactory: QuestionFactoryProtocol = QuestionFactory()
+    private let statisticService: StatisticServiceProtocol = StatisticService()
+    private lazy var resultAlertPresenter = ResultAlertPresenter(viewController: self)
+    private var questions: [QuizQuestion] = []
     private let ypBlack = UIColor(red: 26.0 / 255.0, green: 27.0 / 255.0, blue: 34.0 / 255.0, alpha: 1)
     private let ypGreen = UIColor(red: 96.0 / 255.0, green: 194.0 / 255.0, blue: 142.0 / 255.0, alpha: 1)
     private let ypRed = UIColor(red: 245.0 / 255.0, green: 107.0 / 255.0, blue: 108.0 / 255.0, alpha: 1)
-    private var currentMovieIndex = 0
+    private var currentQuestionIndex = 0
     private var correctAnswerCount = 0
     private var isAnswering = false
 
@@ -43,7 +28,7 @@ final class MovieQuizViewController: UIViewController {
         configureButtons()
         addSubviews()
         configureConstraints()
-        updateQuestion()
+        startNewRound()
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -66,16 +51,20 @@ final class MovieQuizViewController: UIViewController {
         progressLabel.font = UIFont(name: "YSDisplay-Medium", size: 20) ?? .systemFont(ofSize: 20, weight: .regular)
         progressLabel.textColor = .white
         progressLabel.textAlignment = .right
+        progressLabel.accessibilityIdentifier = "questionProgress"
 
         questionLabel.font = UIFont(name: "YSDisplay-Bold", size: 23) ?? .systemFont(ofSize: 23, weight: .bold)
         questionLabel.textColor = .white
         questionLabel.textAlignment = .center
         questionLabel.numberOfLines = 2
         questionLabel.lineBreakMode = .byWordWrapping
+        questionLabel.setContentCompressionResistancePriority(.required, for: .vertical)
+        questionLabel.accessibilityIdentifier = "questionText"
     }
 
     private func configurePosterImageView() {
         posterImageView.contentMode = .scaleAspectFit
+        posterImageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         posterImageView.clipsToBounds = true
         posterImageView.layer.cornerRadius = 20
         posterImageView.layer.borderWidth = 8
@@ -111,6 +100,8 @@ final class MovieQuizViewController: UIViewController {
             .forEach { $0.translatesAutoresizingMaskIntoConstraints = false }
 
         let safeArea = view.safeAreaLayoutGuide
+        let posterAspectRatio = posterImageView.heightAnchor.constraint(equalTo: posterImageView.widthAnchor, multiplier: 1.5)
+        posterAspectRatio.priority = .defaultHigh
 
         NSLayoutConstraint.activate([
             questionTitleLabel.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 20),
@@ -123,11 +114,12 @@ final class MovieQuizViewController: UIViewController {
             posterImageView.topAnchor.constraint(equalTo: questionTitleLabel.bottomAnchor, constant: 15),
             posterImageView.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 20),
             posterImageView.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -20),
-            posterImageView.heightAnchor.constraint(equalTo: posterImageView.widthAnchor, multiplier: 1.5),
+            posterAspectRatio,
 
             questionLabel.topAnchor.constraint(equalTo: posterImageView.bottomAnchor, constant: 34),
             questionLabel.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 20),
             questionLabel.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -20),
+            questionLabel.bottomAnchor.constraint(lessThanOrEqualTo: noButton.topAnchor, constant: -20),
 
             noButton.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 20),
             noButton.trailingAnchor.constraint(equalTo: yesButton.leadingAnchor, constant: -20),
@@ -141,24 +133,22 @@ final class MovieQuizViewController: UIViewController {
     }
 
     private func updateQuestion() {
-        let movie = movies[currentMovieIndex]
-        progressLabel.text = "\(currentMovieIndex + 1)/\(movies.count)"
-        questionLabel.text = "Рейтинг этого фильма больше чем \(Int(ratingThreshold))?"
-        posterImageView.image = UIImage(named: movie.title)
+        guard let question = questions[safe: currentQuestionIndex] else { return }
+        progressLabel.text = "\(currentQuestionIndex + 1)/\(questions.count)"
+        questionLabel.text = question.text
+        posterImageView.image = UIImage(named: question.imageName)
         posterImageView.layer.borderColor = UIColor.clear.cgColor
         noButton.isEnabled = true
         yesButton.isEnabled = true
     }
 
     private func handleAnswer(isYes: Bool) {
-        guard !isAnswering else { return }
+        guard !isAnswering, let question = questions[safe: currentQuestionIndex] else { return }
         isAnswering = true
         noButton.isEnabled = false
         yesButton.isEnabled = false
 
-        let movie = movies[currentMovieIndex]
-        let correctAnswerIsYes = movie.rating > ratingThreshold
-        let isCorrect = isYes == correctAnswerIsYes
+        let isCorrect = isYes == question.correctAnswer
 
         if isCorrect {
             correctAnswerCount += 1
@@ -173,31 +163,32 @@ final class MovieQuizViewController: UIViewController {
     }
 
     private func showNextQuestion() {
-        let nextMovieIndex = currentMovieIndex + 1
-        guard nextMovieIndex < movies.count else {
+        let nextQuestionIndex = currentQuestionIndex + 1
+        guard nextQuestionIndex < questions.count else {
             showRoundEndAlert()
             return
         }
 
-        currentMovieIndex = nextMovieIndex
+        currentQuestionIndex = nextQuestionIndex
         isAnswering = false
         updateQuestion()
     }
 
     private func showRoundEndAlert() {
-        let alert = UIAlertController(
-            title: "Раунд окончен",
-            message: "Ваш результат: \(correctAnswerCount) из \(movies.count)",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "Сыграть ещё раз", style: .default) { [weak self] _ in
+        statisticService.store(correct: correctAnswerCount, total: questions.count)
+        let model = ResultAlertModel(
+            correctAnswers: correctAnswerCount,
+            questionsCount: questions.count,
+            statistics: statisticService
+        ) { [weak self] in
             self?.startNewRound()
-        })
-        present(alert, animated: true)
+        }
+        resultAlertPresenter.show(model)
     }
 
     private func startNewRound() {
-        currentMovieIndex = 0
+        questions = questionFactory.makeQuestions()
+        currentQuestionIndex = 0
         correctAnswerCount = 0
         isAnswering = false
         updateQuestion()
