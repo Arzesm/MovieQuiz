@@ -2,10 +2,11 @@ import XCTest
 import UIKit
 @testable import MovieQuiz
 
+@MainActor
 final class LayoutTests: XCTestCase {
     func testQuestionAndButtonsFitSmallAndLargeIPhoneViewports() throws {
         for size in [CGSize(width: 375, height: 812), CGSize(width: 390, height: 844), CGSize(width: 440, height: 956)] {
-            let controller = MovieQuizViewController()
+            let controller = MovieQuizViewController(moviesLoader: DelayedMoviesLoader())
             controller.loadViewIfNeeded()
             controller.view.frame = CGRect(origin: .zero, size: size)
             controller.additionalSafeAreaInsets = UIEdgeInsets(top: 44, left: 0, bottom: 34, right: 0)
@@ -13,6 +14,8 @@ final class LayoutTests: XCTestCase {
 
             let question = try XCTUnwrap(controller.view.subviews.compactMap { $0 as? UILabel }
                 .first { $0.accessibilityIdentifier == "questionText" })
+            question.text = "Рейтинг этого фильма больше чем 9?"
+            controller.view.layoutIfNeeded()
             let noButton = try XCTUnwrap(controller.view.subviews.compactMap { $0 as? UIButton }
                 .first { $0.accessibilityIdentifier == "noButton" })
             let requiredSize = question.sizeThatFits(CGSize(width: question.bounds.width, height: .greatestFiniteMagnitude))
@@ -28,10 +31,13 @@ final class LayoutTests: XCTestCase {
     }
 
     func testPresenterDoesNotRetainItsViewController() {
-        var controller: UIViewController? = UIViewController()
-        weak var weakController = controller
-        let presenter = ResultAlertPresenter(viewController: controller!)
-        controller = nil
+        weak var weakController: UIViewController?
+        var presenter: ResultAlertPresenter?
+        autoreleasepool {
+            let controller = UIViewController()
+            weakController = controller
+            presenter = ResultAlertPresenter(viewController: controller)
+        }
         XCTAssertNil(weakController)
         withExtendedLifetime(presenter) {}
     }
@@ -43,7 +49,7 @@ final class LayoutTests: XCTestCase {
         let statistics = StatisticService(userDefaults: defaults)
         statistics.store(correct: 8, total: 10)
         let model = ResultAlertModel(correctAnswers: 8, questionsCount: 10, statistics: statistics) {}
-        let controller = ResultAlertViewController(model: model)
+        let controller = ResultAlertViewController(model: model.alertModel)
         controller.loadViewIfNeeded()
         controller.view.frame = CGRect(x: 0, y: 0, width: 375, height: 812)
         controller.view.layoutIfNeeded()

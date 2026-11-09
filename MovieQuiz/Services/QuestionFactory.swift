@@ -1,31 +1,26 @@
 import Foundation
 
 final class QuestionFactory: QuestionFactoryProtocol {
-    private struct Movie {
-        let title: String
-        let rating: Double
-    }
+    func makeQuestions(from catalog: MovieCatalog) throws -> [QuizQuestion] {
+        var selectedIDs = Set<String>()
+        let popular = catalog.popularMovies.filter(\.isSuitableForQuiz).shuffled().filter {
+            selectedIDs.insert($0.id).inserted
+        }.prefix(5)
+        selectedIDs = Set(popular.map(\.id))
+        let top = catalog.topMovies.filter(\.isSuitableForQuiz).shuffled().filter {
+            selectedIDs.insert($0.id).inserted
+        }.prefix(5)
+        guard popular.count == 5, top.count == 5 else { throw MovieQuizError.notEnoughMovies }
 
-    private let movies = [
-        Movie(title: "The Room", rating: 3.7),
-        Movie(title: "The Dark Knight", rating: 9.0),
-        Movie(title: "Kill Bill", rating: 8.1),
-        Movie(title: "The Avengers", rating: 8.0),
-        Movie(title: "Deadpool", rating: 8.0),
-        Movie(title: "The Green Knight", rating: 6.6),
-        Movie(title: "Old", rating: 5.8),
-        Movie(title: "The Ice Age Adventures of Buck Wild", rating: 4.3),
-        Movie(title: "Tesla", rating: 5.1),
-        Movie(title: "Vivarium", rating: 5.8)
-    ]
-
-    func makeQuestions() -> [QuizQuestion] {
-        movies.shuffled().map { movie in
+        return try (Array(popular) + Array(top)).shuffled().map { movie in
+            guard let rating = movie.rating, let imageURL = movie.imageURL else { throw MovieQuizError.invalidResponse }
             let threshold = Int.random(in: 6...9)
             return QuizQuestion(
-                imageName: movie.title,
+                movieID: movie.id,
+                movieTitle: movie.title,
+                imageURL: imageURL,
                 text: "Рейтинг этого фильма больше чем \(threshold)?",
-                correctAnswer: movie.rating > Double(threshold)
+                correctAnswer: rating > Double(threshold)
             )
         }
     }

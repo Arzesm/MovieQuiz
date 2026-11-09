@@ -16,7 +16,7 @@ final class MovieQuizUITests: XCTestCase {
         // A process restart exercises persistence, without uninstalling the app or clearing its data.
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.staticTexts["questionProgress"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["questionProgress"].waitForExistence(timeout: 30))
         XCTAssertEqual(app.staticTexts["questionProgress"].label, "1/10")
         finishRound(in: app)
         let secondMessage = try alertMessage(in: app)
@@ -40,13 +40,13 @@ final class MovieQuizUITests: XCTestCase {
     private func finishRound(in app: XCUIApplication) {
         for index in 1...10 {
             let progress = app.staticTexts["questionProgress"]
-            XCTAssertTrue(progress.waitForExistence(timeout: 10))
+            XCTAssertTrue(progress.waitForExistence(timeout: 30))
             let predicate = NSPredicate(format: "label == %@", "\(index)/10")
             expectation(for: predicate, evaluatedWith: progress)
-            waitForExpectations(timeout: 5)
+            waitForExpectations(timeout: 30)
             let button = app.buttons["noButton"]
             expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: button)
-            waitForExpectations(timeout: 5)
+            waitForExpectations(timeout: 30)
             button.tap()
         }
         XCTAssertTrue(app.buttons["Сыграть ещё раз"].waitForExistence(timeout: 5))

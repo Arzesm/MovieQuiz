@@ -1,3 +1,3 @@
 protocol QuestionFactoryProtocol {
-    func makeQuestions() -> [QuizQuestion]
+    func makeQuestions(from catalog: MovieCatalog) throws -> [QuizQuestion]
 }

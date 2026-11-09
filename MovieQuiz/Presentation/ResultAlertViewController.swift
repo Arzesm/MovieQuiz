@@ -2,10 +2,10 @@ import UIKit
 
 // Keeps the Figma alert appearance on systems whose standard alerts use Liquid Glass.
 final class ResultAlertViewController: UIViewController {
-    private let model: ResultAlertModel
+    private let model: AlertModel
     private let titleLabel = UILabel()
 
-    init(model: ResultAlertModel) {
+    init(model: AlertModel) {
         self.model = model
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .overFullScreen
@@ -35,7 +35,7 @@ final class ResultAlertViewController: UIViewController {
         let messageLabel = UILabel()
         messageLabel.attributedText = formattedText(model.message, size: 13, weight: .regular, lineHeight: 18, spacing: -0.08)
         messageLabel.numberOfLines = 0
-        messageLabel.accessibilityIdentifier = "roundResultMessage"
+        messageLabel.accessibilityIdentifier = "alertMessage"
 
         let content = UIStackView(arrangedSubviews: [titleLabel, messageLabel])
         content.axis = .vertical
@@ -50,7 +50,7 @@ final class ResultAlertViewController: UIViewController {
         button.setTitle(model.buttonText, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         button.setTitleColor(UIColor(red: 0, green: 122.0 / 255.0, blue: 1, alpha: 1), for: .normal)
-        button.addTarget(self, action: #selector(restartTapped), for: .touchUpInside)
+        button.addTarget(self, action: #selector(actionTapped(_:)), for: .touchUpInside)
 
         let stack = UIStackView(arrangedSubviews: [content, separator, button])
         stack.axis = .vertical
@@ -90,7 +90,8 @@ final class ResultAlertViewController: UIViewController {
         ])
     }
 
-    @objc private func restartTapped() {
+    @objc private func actionTapped(_ sender: UIButton) {
+        sender.isEnabled = false
         dismiss(animated: true, completion: model.completion)
     }
 }

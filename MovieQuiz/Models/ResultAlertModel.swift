@@ -6,6 +6,10 @@ struct ResultAlertModel {
     let buttonText = "Сыграть ещё раз"
     let completion: () -> Void
 
+    var alertModel: AlertModel {
+        AlertModel(title: title, message: message, buttonText: buttonText, completion: completion)
+    }
+
     init(correctAnswers: Int, questionsCount: Int, statistics: StatisticServiceProtocol, completion: @escaping () -> Void) {
         let record = statistics.bestGame.map {
             "\($0.correct)/\($0.total) (\($0.date.dateTimeString))"

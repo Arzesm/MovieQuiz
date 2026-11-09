@@ -7,7 +7,7 @@ final class ResultAlertPresenter {
         self.viewController = viewController
     }
 
-    func show(_ model: ResultAlertModel) {
+    func show(_ model: AlertModel) {
         if #available(iOS 26.0, *) {
             viewController?.present(ResultAlertViewController(model: model), animated: true)
             return

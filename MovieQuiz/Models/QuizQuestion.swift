@@ -1,7 +1,9 @@
 import Foundation
 
 struct QuizQuestion {
-    let imageName: String
+    let movieID: String
+    let movieTitle: String
+    let imageURL: URL
     let text: String
     let correctAnswer: Bool
 }

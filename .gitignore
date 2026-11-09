@@ -1,4 +1,5 @@
 .DS_Store
+Config/Secrets.xcconfig
 /.build
 /Packages
 xcuserdata/

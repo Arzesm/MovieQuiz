@@ -1,9 +1,15 @@
 import UIKit
 
+@MainActor
 final class MovieQuizViewController: UIViewController {
-    private let questionFactory: QuestionFactoryProtocol = QuestionFactory()
-    private let statisticService: StatisticServiceProtocol = StatisticService()
+    private let moviesLoader: MoviesLoaderProtocol
+    private let imageLoader: ImageLoaderProtocol
+    private let questionFactory: QuestionFactoryProtocol
+    private let statisticService: StatisticServiceProtocol
     private lazy var resultAlertPresenter = ResultAlertPresenter(viewController: self)
+    private var catalog: MovieCatalog?
+    private var moviesTask: Task<Void, Never>?
+    private var posterTask: Task<Void, Never>?
     private var questions: [QuizQuestion] = []
     private let ypBlack = UIColor(red: 26.0 / 255.0, green: 27.0 / 255.0, blue: 34.0 / 255.0, alpha: 1)
     private let ypGreen = UIColor(red: 96.0 / 255.0, green: 194.0 / 255.0, blue: 142.0 / 255.0, alpha: 1)
@@ -18,6 +24,33 @@ final class MovieQuizViewController: UIViewController {
     private let questionLabel = UILabel()
     private let noButton = UIButton(type: .system)
     private let yesButton = UIButton(type: .system)
+    private let loadingIndicator = UIActivityIndicatorView(style: .large)
+
+    init(
+        moviesLoader: MoviesLoaderProtocol = MoviesLoader(),
+        imageLoader: ImageLoaderProtocol = ImageLoader(),
+        questionFactory: QuestionFactoryProtocol = QuestionFactory(),
+        statisticService: StatisticServiceProtocol = StatisticService()
+    ) {
+        self.moviesLoader = moviesLoader
+        self.imageLoader = imageLoader
+        self.questionFactory = questionFactory
+        self.statisticService = statisticService
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        moviesLoader = MoviesLoader()
+        imageLoader = ImageLoader()
+        questionFactory = QuestionFactory()
+        statisticService = StatisticService()
+        super.init(coder: coder)
+    }
+
+    deinit {
+        moviesTask?.cancel()
+        posterTask?.cancel()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -26,9 +59,12 @@ final class MovieQuizViewController: UIViewController {
         configureLabels()
         configurePosterImageView()
         configureButtons()
+        loadingIndicator.color = .white
+        loadingIndicator.hidesWhenStopped = true
+        loadingIndicator.accessibilityIdentifier = "loadingIndicator"
         addSubviews()
         configureConstraints()
-        startNewRound()
+        loadMovies()
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -91,12 +127,12 @@ final class MovieQuizViewController: UIViewController {
     }
 
     private func addSubviews() {
-        [questionTitleLabel, progressLabel, posterImageView, questionLabel, noButton, yesButton]
+        [questionTitleLabel, progressLabel, posterImageView, questionLabel, noButton, yesButton, loadingIndicator]
             .forEach { view.addSubview($0) }
     }
 
     private func configureConstraints() {
-        [questionTitleLabel, progressLabel, posterImageView, questionLabel, noButton, yesButton]
+        [questionTitleLabel, progressLabel, posterImageView, questionLabel, noButton, yesButton, loadingIndicator]
             .forEach { $0.translatesAutoresizingMaskIntoConstraints = false }
 
         let safeArea = view.safeAreaLayoutGuide
@@ -128,18 +164,96 @@ final class MovieQuizViewController: UIViewController {
             noButton.heightAnchor.constraint(equalToConstant: 60),
             yesButton.heightAnchor.constraint(equalTo: noButton.heightAnchor),
             noButton.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
-            yesButton.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor)
+            yesButton.bottomAnchor.constraint(equalTo: safeArea.bottomAnchor),
+            loadingIndicator.centerXAnchor.constraint(equalTo: posterImageView.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: posterImageView.centerYAnchor)
         ])
+    }
+
+    private func loadMovies() {
+        moviesTask?.cancel()
+        posterTask?.cancel()
+        catalog = nil
+        questions = []
+        currentQuestionIndex = 0
+        correctAnswerCount = 0
+        progressLabel.text = "1/10"
+        questionLabel.text = nil
+        showLoadingIndicator()
+
+        let loader = moviesLoader
+        moviesTask = Task { [weak self] in
+            do {
+                let catalog = try await loader.loadMovies()
+                try Task.checkCancellation()
+                self?.catalog = catalog
+                self?.startNewRound()
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.showNetworkError(error) { [weak self] in self?.loadMovies() }
+            }
+        }
+    }
+
+    private func showLoadingIndicator() {
+        isAnswering = true
+        noButton.isEnabled = false
+        yesButton.isEnabled = false
+        posterImageView.image = nil
+        posterImageView.layer.borderColor = UIColor.clear.cgColor
+        loadingIndicator.startAnimating()
+    }
+
+    private func hideLoadingIndicator() {
+        loadingIndicator.stopAnimating()
     }
 
     private func updateQuestion() {
         guard let question = questions[safe: currentQuestionIndex] else { return }
         progressLabel.text = "\(currentQuestionIndex + 1)/\(questions.count)"
         questionLabel.text = question.text
-        posterImageView.image = UIImage(named: question.imageName)
-        posterImageView.layer.borderColor = UIColor.clear.cgColor
-        noButton.isEnabled = true
-        yesButton.isEnabled = true
+        showLoadingIndicator()
+        posterTask?.cancel()
+        let loader = imageLoader
+        posterTask = Task { [weak self] in
+            do {
+                let data = try await loader.loadImage(from: question.imageURL)
+                try Task.checkCancellation()
+                guard let self = self else { return }
+                guard let image = UIImage(data: data) else { throw MovieQuizError.invalidImage }
+                self.posterImageView.image = image
+                self.posterImageView.isAccessibilityElement = true
+                self.posterImageView.accessibilityLabel = question.movieTitle
+                self.posterImageView.accessibilityValue = question.movieID
+                self.hideLoadingIndicator()
+                self.isAnswering = false
+                self.noButton.isEnabled = true
+                self.yesButton.isEnabled = true
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.showNetworkError(error) { [weak self] in self?.updateQuestion() }
+            }
+        }
+    }
+
+    private func showNetworkError(_ error: Error, retry: @escaping () -> Void) {
+        hideLoadingIndicator()
+        let message: String
+        if let error = error as? URLError {
+            if error.code == .timedOut {
+                message = "Сервис не ответил вовремя. Попробуйте ещё раз."
+            } else {
+                message = "Проверьте подключение к интернету и попробуйте ещё раз."
+            }
+        } else {
+            message = error.localizedDescription
+        }
+        resultAlertPresenter.show(AlertModel(
+            title: "Ошибка",
+            message: "Не удалось загрузить данные.\n\(message)",
+            buttonText: "Попробовать ещё раз",
+            completion: retry
+        ))
     }
 
     private func handleAnswer(isYes: Bool) {
@@ -183,11 +297,17 @@ final class MovieQuizViewController: UIViewController {
         ) { [weak self] in
             self?.startNewRound()
         }
-        resultAlertPresenter.show(model)
+        resultAlertPresenter.show(model.alertModel)
     }
 
     private func startNewRound() {
-        questions = questionFactory.makeQuestions()
+        guard let catalog = catalog else { loadMovies(); return }
+        do {
+            questions = try questionFactory.makeQuestions(from: catalog)
+        } catch {
+            showNetworkError(error) { [weak self] in self?.loadMovies() }
+            return
+        }
         currentQuestionIndex = 0
         correctAnswerCount = 0
         isAnswering = false
